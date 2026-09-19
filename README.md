@@ -6,6 +6,22 @@ This server targets [Irodori-TTS-v4-Small](https://huggingface.co/Aratako/Irodor
 
 Standard requests return one complete audio response. Chunk-level Server-Sent Events are also available for long text.
 
+> [!IMPORTANT]
+> This `aarch64` branch targets Linux/aarch64 + NVIDIA CUDA 13.
+> It has been tested on NVIDIA DGX Spark / GB10 with PyTorch 2.10.0+cu130.
+> See [Linux aarch64 / CUDA 13](#linux-aarch64--cuda-13) for details.
+>
+> Currently verified:
+>
+> - /health
+> - /v1/audio/speech
+> - VoiceDesign
+> - Reference voice
+> - Multiple Reference Clips
+> - Docker GPU execution
+>
+> Other features have not yet been validated on aarch64.
+
 ## Features
 
 - OpenAI-compatible `POST /v1/audio/speech`
@@ -36,15 +52,17 @@ A CUDA or ROCm GPU is recommended for practical inference.
 ## Installation
 
 ```bash
-git clone https://github.com/Aratako/Irodori-TTS-Server.git
+git clone -b aarch64 https://github.com/tinatsu-nomy/Irodori-TTS-Server.git
 cd Irodori-TTS-Server
-uv sync --extra cu128
+
+uv sync --extra cu130
 cp .env.example .env
 ```
 
 Choose one PyTorch backend extra:
 
 ```bash
+uv sync --extra cu130  # NVIDIA DGX Spark / GB10
 uv sync --extra cu128  # NVIDIA CUDA 12.8
 uv sync --extra rocm   # AMD ROCm on Linux
 uv sync --extra cpu    # CPU-only
@@ -107,13 +125,15 @@ Create `.env` first:
 cp .env.example .env
 ```
 
-Set the backend used when the image is built:
+Set the backend used when the image is built. On the `aarch64` branch,
+`cu130` is the validated default for Linux/aarch64 CUDA 13:
 
 ```env
-IRODORI_TTS_BACKEND=cu128
+IRODORI_TTS_BACKEND=cu130
 ```
 
-Supported values are `cu128`, `rocm`, and `cpu`.
+Available values are `cu130`, `cu128`, `rocm`, and `cpu`.
+Only `cu130` has been validated on Linux/aarch64 in this branch.
 
 On the first run, or after updating the server code, build and recreate the container:
 
@@ -559,7 +579,7 @@ All environment variables use the `IRODORI_` prefix. Request fields override the
 | --- | --- | --- |
 | `IRODORI_HOST` | `0.0.0.0` | Server host. |
 | `IRODORI_PORT` | `8088` | Server port. |
-| `IRODORI_TTS_BACKEND` | `cu128` | Docker build backend: `cu128`, `rocm`, or `cpu`. |
+| `IRODORI_TTS_BACKEND` | `cu130` | Docker build backend. `cu130` is the validated Linux/aarch64 CUDA 13 backend on this branch. Other available values include `cu128`, `rocm`, and `cpu`. |
 | `IRODORI_API_KEY` | unset | Optional bearer token. |
 | `IRODORI_MODEL_NAME` | `irodori-tts` | Model ID used in requests. |
 | `IRODORI_HF_CHECKPOINT` | `Aratako/Irodori-TTS-v4-Small` | Hugging Face repo or `repo/subfolder` containing `model.safetensors` and optional bundled tokenizer assets. |
@@ -591,6 +611,42 @@ All environment variables use the `IRODORI_` prefix. Request fields override the
 | `IRODORI_DEFAULT_CHUNKING_ENABLED` | `true` | Enable punctuation-aware chunking by default. |
 | `IRODORI_DEFAULT_CHUNK_MIN_CHARS` | `80` | Minimum non-space characters before a split point is used. |
 | `IRODORI_DEFAULT_FIRST_SENTENCE_CHUNK_MIN_CHARS` | unset | Minimum non-space characters before the first sentence split point is used. Unset keeps normal `chunk_min_chars` behavior. |
+
+## Linux aarch64 / CUDA 13
+
+The `aarch64` branch supports NVIDIA CUDA 13 on Linux/aarch64.
+
+Tested environment:
+
+- NVIDIA DGX Spark / GB10
+- Linux aarch64
+- CUDA 13.0
+- PyTorch 2.10.0+cu130
+- Python 3.10
+
+This branch uses:
+
+https://github.com/tinatsu-nomy/Irodori-TTS/tree/aarch64
+
+The underlying Irodori-TTS aarch64 branch disables TorchCodec and uses
+the SoundFile fallback for audio I/O.
+
+Currently verified:
+
+- VoiceDesign
+- Multiple Reference Clips
+- OpenAI-compatible `/v1/audio/speech`
+- Docker GPU execution
+
+Other features have not yet been validated on aarch64.
+
+### DGX Spark note
+
+PyTorch 2.10.0+cu130 may emit a warning that GB10 compute capability
+12.1 is newer than the wheel's reported maximum capability 12.0.
+
+CUDA tensor operations and Irodori-TTS inference have been verified to
+work on the tested DGX Spark system despite this warning.
 
 ## Development
 
